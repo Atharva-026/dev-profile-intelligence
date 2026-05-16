@@ -43,6 +43,7 @@ tasks:
     script: |
       import os
       import json
+      import re
       import urllib.request
       import urllib.error
 
@@ -90,15 +91,55 @@ tasks:
       try:
         with urllib.request.urlopen(req) as response:
           result = json.loads(response.read())
-          analysis = result['choices'][0]['message']['content']
-          print(analysis)
+          raw = result['choices'][0]['message']['content']
+          print(raw)
+
+          html = raw
+          html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
+          html = re.sub(r'\*(.+?)\*', r'<em>\1</em>', html)
+
+          lines = html.split('\n')
+          formatted = []
+          for line in lines:
+            line = line.strip()
+            if not line:
+              formatted.append('<br>')
+            elif re.match(r'^\d+\.', line):
+              formatted.append(f'<li style="margin-bottom:8px;">{line}</li>')
+            elif line.startswith('- '):
+              formatted.append(f'<li style="margin-bottom:8px;">{line[2:]}</li>')
+            else:
+              formatted.append(f'<p style="margin:8px 0;">{line}</p>')
+
+          html_body = '\n'.join(formatted)
+
+          email_html = f"""<html>
+      <body style="font-family:Arial,sans-serif;max-width:700px;margin:auto;padding:20px;color:#333;">
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:30px;border-radius:12px;text-align:center;margin-bottom:30px;">
+          <h1 style="color:white;margin:0;font-size:24px;">Developer Profile Intelligence</h1>
+          <p style="color:rgba(255,255,255,0.9);margin:8px 0 0;">AI-powered career analysis by Kestra + Groq</p>
+        </div>
+        <div style="background:#f8f9fa;padding:16px;border-radius:8px;margin-bottom:24px;border-left:4px solid #667eea;">
+          <strong>GitHub:</strong> {{ inputs.github_username }}<br>
+          <strong>LinkedIn:</strong> {{ inputs.linkedin_summary }}
+        </div>
+        <div style="background:white;padding:24px;border-radius:8px;border:1px solid #e0e0e0;line-height:1.8;">
+          {html_body}
+        </div>
+        <div style="text-align:center;margin-top:24px;color:#999;font-size:12px;">
+          Powered by Kestra Orchestration + Groq AI
+        </div>
+      </body>
+      </html>"""
+
           with open('analysis.txt', 'w') as f:
-            f.write(analysis)
+            f.write(email_html)
+
       except urllib.error.HTTPError as e:
         error = e.read().decode()
         print(f"ERROR: {error}")
         with open('analysis.txt', 'w') as f:
-          f.write(f"Error: {error}")
+          f.write(f"<p>Error: {error}</p>")
 
   - id: send_email
     type: io.kestra.plugin.notifications.mail.MailSend
@@ -110,5 +151,5 @@ tasks:
     transportStrategy: SMTPS
     from: "{{ secret('GMAIL_ADDRESS') }}"
     to: "{{ inputs.recipient_email }}"
-    subject: "Developer Profile Analysis - {{ inputs.github_username }}"
+    subject: "🔍 Developer Profile Analysis - {{ inputs.github_username }}"
     htmlTextContent: "{{ read(outputs.call_groq.outputFiles['analysis.txt']) }}"
