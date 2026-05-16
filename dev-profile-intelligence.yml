@@ -1,0 +1,114 @@
+id: dev-profile-intelligence
+namespace: dev.profile.agent
+
+inputs:
+  - id: github_username
+    type: STRING
+    defaults: "Atharva-026"
+  - id: linkedin_summary
+    type: STRING
+    defaults: "JavaScript developer with experience in React and Node.js"
+  - id: recipient_email
+    type: STRING
+    defaults: "atharvanaik026@gmail.com"
+
+tasks:
+  - id: parallel_fetch
+    type: io.kestra.plugin.core.flow.Parallel
+    tasks:
+      - id: fetch_github_profile
+        type: io.kestra.plugin.core.http.Request
+        uri: "https://api.github.com/users/{{ inputs.github_username }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ secret('GITHUB_TOKEN') }}"
+          Accept: "application/vnd.github.v3+json"
+
+      - id: fetch_github_repos
+        type: io.kestra.plugin.core.http.Request
+        uri: "https://api.github.com/users/{{ inputs.github_username }}/repos?sort=updated&per_page=10"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ secret('GITHUB_TOKEN') }}"
+          Accept: "application/vnd.github.v3+json"
+
+  - id: call_groq
+    type: io.kestra.plugin.scripts.python.Script
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    env:
+      GROQ_API_KEY: "{{ secret('GROQ_API_KEY') }}"
+    outputFiles:
+      - analysis.txt
+    script: |
+      import os
+      import json
+      import urllib.request
+      import urllib.error
+
+      groq_key = os.environ.get("GROQ_API_KEY")
+      github_profile = json.loads("""{{ outputs.fetch_github_profile.body }}""")
+      github_repos = json.loads("""{{ outputs.fetch_github_repos.body }}""")
+
+      languages = list(set([r['language'] for r in github_repos if r['language']]))
+      missing_desc = [r['name'] for r in github_repos if not r['description']]
+
+      user_content = (
+        f"GitHub Username: {github_profile.get('login')} | "
+        f"Bio: {github_profile.get('bio')} | "
+        f"Public Repos: {github_profile.get('public_repos')} | "
+        f"Followers: {github_profile.get('followers')} | "
+        f"LinkedIn: {{ inputs.linkedin_summary }} | "
+        f"Languages: {languages} | "
+        f"Repos missing description: {missing_desc}"
+      )
+
+      payload = json.dumps({
+        "model": "llama-3.1-8b-instant",
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a brutally honest career coach for developers. Analyze this profile. Give: 1) Score out of 100, 2) Top 3 gaps, 3) Red flags recruiters notice, 4) Five action items. Be direct."
+          },
+          {
+            "role": "user",
+            "content": user_content
+          }
+        ]
+      }).encode()
+
+      req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+          "Authorization": f"Bearer {groq_key}",
+          "Content-Type": "application/json",
+          "User-Agent": "kestra-workflow/1.0"
+        }
+      )
+
+      try:
+        with urllib.request.urlopen(req) as response:
+          result = json.loads(response.read())
+          analysis = result['choices'][0]['message']['content']
+          print(analysis)
+          with open('analysis.txt', 'w') as f:
+            f.write(analysis)
+      except urllib.error.HTTPError as e:
+        error = e.read().decode()
+        print(f"ERROR: {error}")
+        with open('analysis.txt', 'w') as f:
+          f.write(f"Error: {error}")
+
+  - id: send_email
+    type: io.kestra.plugin.notifications.mail.MailSend
+    host: smtp.gmail.com
+    port: 465
+    username: "{{ secret('GMAIL_ADDRESS') }}"
+    password: "{{ secret('GMAIL_PASSWORD') }}"
+    sessionTimeout: 30000
+    transportStrategy: SMTPS
+    from: "{{ secret('GMAIL_ADDRESS') }}"
+    to: "{{ inputs.recipient_email }}"
+    subject: "Developer Profile Analysis - {{ inputs.github_username }}"
+    htmlTextContent: "{{ read(outputs.call_groq.outputFiles['analysis.txt']) }}"
