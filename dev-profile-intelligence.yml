@@ -48,6 +48,8 @@ tasks:
       import urllib.error
 
       groq_key = os.environ.get("GROQ_API_KEY")
+      github_username = "{{ inputs.github_username }}"
+      linkedin_summary = "{{ inputs.linkedin_summary }}"
       github_profile = json.loads("""{{ outputs.fetch_github_profile.body }}""")
       github_repos = json.loads("""{{ outputs.fetch_github_repos.body }}""")
 
@@ -59,7 +61,7 @@ tasks:
         f"Bio: {github_profile.get('bio')} | "
         f"Public Repos: {github_profile.get('public_repos')} | "
         f"Followers: {github_profile.get('followers')} | "
-        f"LinkedIn: {{ inputs.linkedin_summary }} | "
+        f"LinkedIn: {linkedin_summary} | "
         f"Languages: {languages} | "
         f"Repos missing description: {missing_desc}"
       )
@@ -120,8 +122,8 @@ tasks:
           <p style="color:rgba(255,255,255,0.9);margin:8px 0 0;">AI-powered career analysis by Kestra + Groq</p>
         </div>
         <div style="background:#f8f9fa;padding:16px;border-radius:8px;margin-bottom:24px;border-left:4px solid #667eea;">
-          <strong>GitHub:</strong> {{ inputs.github_username }}<br>
-          <strong>LinkedIn:</strong> {{ inputs.linkedin_summary }}
+          <strong>GitHub:</strong> {github_username}<br>
+          <strong>LinkedIn:</strong> {linkedin_summary}
         </div>
         <div style="background:white;padding:24px;border-radius:8px;border:1px solid #e0e0e0;line-height:1.8;">
           {html_body}
@@ -153,3 +155,8 @@ tasks:
     to: "{{ inputs.recipient_email }}"
     subject: "🔍 Developer Profile Analysis - {{ inputs.github_username }}"
     htmlTextContent: "{{ read(outputs.call_groq.outputFiles['analysis.txt']) }}"
+
+triggers:
+  - id: webhook
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: dev-profile-agent

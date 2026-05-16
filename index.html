@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Profile Intelligence</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo h1 {
+      font-size: 26px;
+      color: #333;
+      font-weight: 700;
+    }
+
+    .logo p {
+      color: #888;
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-top: 8px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 6px;
+      margin-top: 20px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e8e8e8;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #333;
+      transition: border-color 0.2s;
+      outline: none;
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus {
+      border-color: #667eea;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 4px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 28px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    button:hover { opacity: 0.92; }
+    button:active { transform: scale(0.99); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .status {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status.loading {
+      background: #f0f4ff;
+      color: #667eea;
+      display: block;
+    }
+
+    .status.success {
+      background: #f0fff4;
+      color: #2d8a4e;
+      display: block;
+    }
+
+    .status.error {
+      background: #fff0f0;
+      color: #e53e3e;
+      display: block;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #667eea;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .feature {
+      background: #f8f9ff;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 12px;
+      color: #555;
+      text-align: center;
+    }
+
+    .feature span {
+      display: block;
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>🔍 Developer Profile Intelligence</h1>
+      <p>Get a brutally honest AI analysis of your developer profile</p>
+      <div class="badge">Powered by Kestra + Groq AI</div>
+    </div>
+
+    <label>GitHub Username *</label>
+    <input type="text" id="github_username" placeholder="e.g. Atharva-026" />
+
+    <label>LinkedIn Summary *</label>
+    <textarea id="linkedin_summary" placeholder="Paste a short summary from your LinkedIn profile e.g. JavaScript developer with 2 years experience in React and Node.js..."></textarea>
+    <div class="hint">Copy your LinkedIn headline or About section</div>
+
+    <label>Your Email *</label>
+    <input type="email" id="recipient_email" placeholder="you@gmail.com" />
+    <div class="hint">The full analysis report will be sent here</div>
+
+    <button onclick="submitAnalysis()" id="btn">🚀 Analyse My Profile</button>
+
+    <div class="status" id="status"></div>
+
+    <div class="features">
+      <div class="feature">
+        <span>📊</span>
+        Profile Score 0-100
+      </div>
+      <div class="feature">
+        <span>🚨</span>
+        Red Flags Detected
+      </div>
+      <div class="feature">
+        <span>🎯</span>
+        Action Items
+      </div>
+      <div class="feature">
+        <span>📧</span>
+        Report via Email
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function submitAnalysis() {
+      const github_username = document.getElementById('github_username').value.trim();
+      const linkedin_summary = document.getElementById('linkedin_summary').value.trim();
+      const recipient_email = document.getElementById('recipient_email').value.trim();
+      const btn = document.getElementById('btn');
+      const status = document.getElementById('status');
+
+      if (!github_username || !linkedin_summary || !recipient_email) {
+        status.className = 'status error';
+        status.innerHTML = '⚠️ Please fill in all fields.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Analysing...';
+      status.className = 'status loading';
+      status.innerHTML = '<span class="spinner"></span> Triggering your analysis via Kestra...';
+
+      try {const response = await fetch('/api/trigger', {
+        
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ github_username, linkedin_summary, recipient_email })
+        });
+
+        if (response.ok) {
+          status.className = 'status success';
+          status.innerHTML = `✅ Analysis started! Check <strong>${recipient_email}</strong> in 1-2 minutes for your full report.`;
+        } else {
+          throw new Error('Failed to trigger');
+        }
+      } catch (err) {
+        status.className = 'status error';
+        status.innerHTML = '❌ Could not connect to Kestra. Make sure it is running.';
+      }
+
+      btn.disabled = false;
+      btn.textContent = '🚀 Analyse My Profile';
+    }
+  </script>
+</body>
+</html>
