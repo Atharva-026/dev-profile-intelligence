@@ -18,7 +18,7 @@ tasks:
     tasks:
       - id: fetch_github_profile
         type: io.kestra.plugin.core.http.Request
-        uri: "https://api.github.com/users/{{ inputs.github_username }}"
+        uri: "https://api.github.com/users/{{ trigger.variables.body.github_username | default(inputs.github_username) }}"
         method: GET
         headers:
           Authorization: "Bearer {{ secret('GITHUB_TOKEN') }}"
@@ -26,7 +26,7 @@ tasks:
 
       - id: fetch_github_repos
         type: io.kestra.plugin.core.http.Request
-        uri: "https://api.github.com/users/{{ inputs.github_username }}/repos?sort=updated&per_page=10"
+        uri: "https://api.github.com/users/{{ trigger.variables.body.github_username | default(inputs.github_username) }}/repos?sort=updated&per_page=10"
         method: GET
         headers:
           Authorization: "Bearer {{ secret('GITHUB_TOKEN') }}"
@@ -48,8 +48,8 @@ tasks:
       import urllib.error
 
       groq_key = os.environ.get("GROQ_API_KEY")
-      github_username = "{{ inputs.github_username }}"
-      linkedin_summary = "{{ inputs.linkedin_summary }}"
+      github_username = "{{ trigger.variables.body.github_username | default(inputs.github_username) }}"
+      linkedin_summary = "{{ trigger.variables.body.linkedin_summary | default(inputs.linkedin_summary) }}"
       github_profile = json.loads("""{{ outputs.fetch_github_profile.body }}""")
       github_repos = json.loads("""{{ outputs.fetch_github_repos.body }}""")
 
@@ -152,8 +152,8 @@ tasks:
     sessionTimeout: 30000
     transportStrategy: SMTPS
     from: "{{ secret('GMAIL_ADDRESS') }}"
-    to: "{{ inputs.recipient_email }}"
-    subject: "🔍 Developer Profile Analysis - {{ inputs.github_username }}"
+    to: "{{ trigger.variables.body.recipient_email | default(inputs.recipient_email) }}"
+    subject: "🔍 Developer Profile Analysis"
     htmlTextContent: "{{ read(outputs.call_groq.outputFiles['analysis.txt']) }}"
 
 triggers:

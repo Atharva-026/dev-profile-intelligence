@@ -50,7 +50,7 @@ const server = http.createServer((req, res) => {
 
       proxy.on('error', (err) => {
         console.error('Proxy error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.writeHead(500);
         res.end(JSON.stringify({ error: err.message }));
       });
 
