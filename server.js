@@ -25,16 +25,16 @@ const server = http.createServer((req, res) => {
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
       const parsed = JSON.parse(body);
-      const formData = `github_username=${encodeURIComponent(parsed.github_username)}&linkedin_summary=${encodeURIComponent(parsed.linkedin_summary)}&recipient_email=${encodeURIComponent(parsed.recipient_email)}`;
+      const payload = JSON.stringify(parsed);
 
       const options = {
         hostname: 'localhost',
         port: 8080,
-        path: '/api/v1/main/executions/dev.profile.agent/dev-profile-intelligence',
+        path: '/api/v1/main/executions/webhook/dev.profile.agent/dev-profile-intelligence/dev-profile-agent',
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Content-Length': Buffer.byteLength(formData)
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
         }
       };
 
@@ -42,17 +42,19 @@ const server = http.createServer((req, res) => {
         let data = '';
         proxyRes.on('data', chunk => data += chunk);
         proxyRes.on('end', () => {
+          console.log('Kestra response:', proxyRes.statusCode, data);
           res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
           res.end(data);
         });
       });
 
       proxy.on('error', (err) => {
+        console.error('Proxy error:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       });
 
-      proxy.write(formData);
+      proxy.write(payload);
       proxy.end();
     });
     return;
